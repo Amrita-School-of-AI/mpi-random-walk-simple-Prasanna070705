@@ -56,51 +56,45 @@ void walker_process()
     int steps = 0;
 
     // Walk loop
-steps = 0;
+    while (steps < max_steps) {
+        int move;
+        
+        if (std::rand() % 2 == 0)
+            move = -1;
+        else
+            move = 1;
+        position += move;
+        steps++;
+        
+        if (position <= -domain_size || position >= domain_size)
+            break;
+    }
 
-while (steps < max_steps) {
-    int move;
+    // Send steps to controller
+    MPI_Send(&steps, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);
     
-    if (std::rand() % 2 == 0)
-        move = -1;
-    else
-        move = 1;
-    position += move;
-    steps++;
-    if (position <= -domain_size || position >= domain_size)
-        break;
-}
-
-    std::cout << "Walker Rank " << world_rank << ": Finished in " << (steps + 1) << " steps.\n";
-
-    int message = steps + 1;
-    MPI_Send(&message, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);
+    // Print walker's own message
+    std::cout << "Rank " << world_rank << ": Walker finished in " << steps << "." << std::endl;
 }
 
 // Function for controller to receive messages
 void controller_process()
 {
     int num_walkers = world_size - 1;
+    int received_count = 0;
 
-    std::cout << "Controller: Waiting for " << num_walkers << " walkers...\n";
+    // Receive all messages from walkers
+    while (received_count < num_walkers) {
+        int steps_taken;        
+        MPI_Status status;    
 
-int i = 0;
-while (i < num_walkers) {
-    int steps_taken;        
-    MPI_Status status;    
+        MPI_Recv(&steps_taken, 1, MPI_INT,
+                 MPI_ANY_SOURCE, 0,
+                 MPI_COMM_WORLD, &status);
+        
+        received_count++;
+    }
 
-    MPI_Recv(&steps_taken, 1, MPI_INT,
-             MPI_ANY_SOURCE, 0,
-             MPI_COMM_WORLD, &status);
-
-    std::cout << "Controller: Walker with Rank "
-              << status.MPI_SOURCE
-              << " completed in "
-              << steps_taken << " steps." << std::endl;
-
-    i++;
-}
-
-
-    std::cout << "Controller: All " << num_walkers << " walkers have Completed.\n";
+    // Print completion message with exact expected format
+    std::cout << "All " << num_walkers << " walkers have finished" << std::endl;
 }
